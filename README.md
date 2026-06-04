@@ -29,7 +29,7 @@ cargo add alloy-ccip-read
 or alternatively add it to your `Cargo.toml` file:
 
 ```toml
-alloy-ccip-read = "0.1.0"
+alloy-ccip-read = "0.3"
 ```
 
 ## Usage
@@ -61,3 +61,10 @@ async fn main() -> Result<()> {
 
 For more examples, check out [the examples](./examples) directory
 
+## Releasing (maintainers)
+
+Releases are automated with [release-plz](https://release-plz.dev/):
+
+1. Merge PRs using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:` → minor, `fix:` → patch, `feat!:` / `BREAKING:` → major).
+2. release-plz opens or updates a **Release PR** (version bump in `Cargo.toml` + `CHANGELOG.md`).
+3. Merge the Release PR → CI tags the release and runs `cargo publish` to [crates.io](https://crates.io/crates/alloy-ccip-read).
