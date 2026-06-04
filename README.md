@@ -41,8 +41,8 @@ use alloy_ccip_read::CCIPReader;
 #[tokio::main]
 async fn main() -> Result<()> {
     let rpc = "https://your.web3.provider";
-    let provider = ProviderBuilder::new().on_http(rpc.parse().unwrap());
-    let reader = CCIPReader::new(provider.boxed());
+    let provider = ProviderBuilder::new().connect_http(rpc.parse().unwrap());
+    let reader = CCIPReader::new(provider);
 
     let ens_name = "1.offchainexample.eth";
     

@@ -23,9 +23,7 @@ pub async fn resolve_d3_name<P: Provider, D: DomainIdProvider>(
         network: network.into(),
     };
     let mut ccip_read_used = false;
-    let addr = ens::query_resolver_non_wildcarded(reader, resolver_address, call)
-        .await?
-        .map(|addr| addr._0);
+    let addr = ens::query_resolver_non_wildcarded(reader, resolver_address, call).await?;
     ccip_read_used |= addr.ccip_read_used();
     Ok(ResolveResult {
         addr,
@@ -53,9 +51,7 @@ pub async fn reverse_resolve_d3_name<P: Provider, D: DomainIdProvider>(
         network: network.into(),
     };
     let mut ccip_read_used = false;
-    let name = ens::query_resolver_non_wildcarded(reader, resolver_address, call)
-        .await?
-        .map(|name| name._0);
+    let name = ens::query_resolver_non_wildcarded(reader, resolver_address, call).await?;
     ccip_read_used |= name.ccip_read_used();
     Ok(ReverseResolveResult {
         name,
@@ -66,25 +62,22 @@ pub async fn reverse_resolve_d3_name<P: Provider, D: DomainIdProvider>(
 #[cfg(test)]
 mod tests {
     use crate::{CCIPReader, NamehashIdProvider};
-    use alloy::{
-        providers::{ProviderBuilder, RootProvider},
-        transports::BoxTransport,
-    };
+    use alloy::providers::{ProviderBuilder, RootProvider};
     use rstest::{fixture, rstest};
 
     use super::*;
 
     #[fixture]
     #[once]
-    fn reader() -> CCIPReader<RootProvider<BoxTransport>, NamehashIdProvider> {
+    fn reader() -> CCIPReader<RootProvider, NamehashIdProvider> {
         let shibarium = ProviderBuilder::default()
-            .on_http("https://puppynet.shibrpc.com".parse().unwrap())
-            .boxed();
+            .connect_http("https://puppynet.shibrpc.com".parse().unwrap());
         CCIPReader::new(shibarium)
     }
 
     #[rstest]
     #[tokio::test]
+    #[ignore = "D3 http server is down"]
     #[case(
         "0x91c2d22ca1028B2E55e3097096494Eb34b7fc81c",
         "d3connect.shib",
@@ -96,7 +89,7 @@ mod tests {
         #[case] name: &str,
         #[case] network: &str,
         #[case] address: Address,
-        reader: &CCIPReader<RootProvider<BoxTransport>, NamehashIdProvider>,
+        reader: &CCIPReader<RootProvider, NamehashIdProvider>,
     ) {
         let result = resolve_d3_name(reader, resolver_address, name, network)
             .await

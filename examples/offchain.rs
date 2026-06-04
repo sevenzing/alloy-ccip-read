@@ -6,15 +6,10 @@ use anyhow::Result;
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let rpc = alloy_ccip_read::consts::DEFAULT_ETHEREUM_RPC_URL;
-    let provider = ProviderBuilder::new().on_http(rpc.parse().unwrap());
-    let reader = CCIPReader::new(provider.boxed());
+    let provider = ProviderBuilder::new().connect_http(rpc.parse().unwrap());
+    let reader = CCIPReader::new(provider);
     let registry_address = None;
-    for ens_name in [
-        "1.offchainexample.eth",
-        "levvv.xyz",
-        "itslev.cb.id",
-        "llev.me",
-    ] {
+    for ens_name in ["1.offchainexample.eth", "itslev.cb.id", "llev.me"] {
         println!("\nresolving name: {}", ens_name);
 
         let resolver_address =

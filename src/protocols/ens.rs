@@ -7,7 +7,6 @@ use alloy::{
     primitives::{Address, Bytes},
     providers::Provider,
     sol_types::{SolCall, SolValue},
-    transports::BoxTransport,
 };
 
 /// The supports_wildcard checks if a given resolver supports the wildcard resolution by calling
@@ -30,8 +29,7 @@ pub async fn supports_wildcard<P: Provider, D>(
     let supported = contract
         .supportsInterface(consts::ENSIP10_RESOLVER_INTERFACE.into())
         .call()
-        .await?
-        ._0;
+        .await?;
     Ok(supported)
 }
 
@@ -60,7 +58,7 @@ pub async fn get_resolver_wildcarded<P: Provider, D: DomainIdProvider>(
 
         let name_id = reader.domain_id_provider().generate(parent_name);
         let data = registry.resolver(name_id).call().await?;
-        let resolver_address = data._0;
+        let resolver_address = data;
 
         if resolver_address != Address::ZERO {
             if parent_name != name && !supports_wildcard(reader, resolver_address).await? {
@@ -115,9 +113,7 @@ pub async fn resolve_name_with_resolver<P: Provider, D: DomainIdProvider>(
     let node = reader.domain_id_provider().generate(name);
     let addr_call = contracts::IAddrResolver::addrCall { node };
     let mut ccip_read_used = false;
-    let addr = query_resolver(reader, name, resolver_address, addr_call, supports_wildcard)
-        .await?
-        .map(|addr| addr._0);
+    let addr = query_resolver(reader, name, resolver_address, addr_call, supports_wildcard).await?;
     ccip_read_used |= !addr.requests.is_empty();
     Ok(ResolveResult {
         addr,
@@ -189,9 +185,9 @@ pub async fn query_resolver_wildcarded<P: Provider, D: DomainIdProvider, C: SolC
 
     tracing::debug!(requests =? result.requests, "finished call_ccip");
 
-    let bytes = Bytes::abi_decode(&result.value, true)?;
+    let bytes = Bytes::abi_decode(&result.value)?;
 
-    let value = C::abi_decode_returns(&bytes, true)?;
+    let value = C::abi_decode_returns(&bytes)?;
 
     Ok(CCIPResult::new(value, result.requests))
 }
@@ -217,10 +213,7 @@ pub async fn query_resolver_non_wildcarded<P: Provider, D: DomainIdProvider, C: 
         .await
 }
 
-fn registry<P: Provider>(
-    address: Option<Address>,
-    provider: P,
-) -> contracts::ENS::ENSInstance<BoxTransport, P> {
+fn registry<P: Provider>(address: Option<Address>, provider: P) -> contracts::ENS::ENSInstance<P> {
     contracts::ENS::new(address.unwrap_or(consts::MAINNET_ENS_ADDRESS), provider)
 }
 
@@ -243,8 +236,7 @@ mod tests {
                 }
             }
             let provider = ProviderBuilder::default()
-                .on_http(consts::DEFAULT_ETHEREUM_RPC_URL.parse().unwrap())
-                .boxed();
+                .connect_http(consts::DEFAULT_ETHEREUM_RPC_URL.parse().unwrap());
             CCIPReader::builder()
                 .with_provider(provider)
                 .with_domain_id_provider(CustomDomainIdProvider)
@@ -274,10 +266,10 @@ mod tests {
         "0x41563129cDbbD0c5D3e1c86cf9563926b243834d"
     )]
     #[case(
-        "levvv.xyz",
-        true,
-        true,
-        "0xF142B308cF687d4358410a4cB885513b30A42025",
+        "llev.me",
+        false,
+        false,
+        "0x231b0ee14048e9dccd1d247744d114a4eb5e8e63",
         "0xc0de20a37e2dac848f81a93bd85fe4acdde7c0de"
     )]
     #[case(
@@ -345,82 +337,4 @@ mod tests {
             result.wildcard_used
         );
     }
-    // #[tokio::test]
-    // async fn test_eip_2544_ens_wildcards() {
-    //     let reader = CCIPReader::mainnet();
-
-    //     // hope they will never change their domains 🙏
-    //     for (ens_name, wildcarded, ccip_read_used, expected_resolver, expected_addr) in [
-    //         (
-    //             "1.offchainexample.eth",
-    //             true,
-    //             true,
-    //             "0xC1735677a60884ABbCF72295E88d47764BeDa282",
-    //             "0x41563129cDbbD0c5D3e1c86cf9563926b243834d",
-    //         ),
-    //         (
-    //             "levvv.xyz",
-    //             true,
-    //             true,
-    //             "0xF142B308cF687d4358410a4cB885513b30A42025",
-    //             "0xc0de20a37e2dac848f81a93bd85fe4acdde7c0de",
-    //         ),
-    //         (
-    //             "vitalik.eth",
-    //             false,
-    //             false,
-    //             "0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63",
-    //             "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-    //         ),
-    //         (
-    //             "itslev.cb.id",
-    //             true,
-    //             true,
-    //             "0x1934FC75aD10d7eEd51dc7A92773cAc96A06BE56",
-    //             "0xD578780f1dA7404d9CC0eEbC9D684c140CC4b638",
-    //         ),
-    //         (
-    //             "moo331.nft-owner.eth",
-    //             true,
-    //             false,
-    //             "0x56942dd93A6778F4331994A1e5b2f59613DE1387",
-    //             "0x51050ec063d393217B436747617aD1C2285Aeeee",
-    //         ),
-    //         (
-    //             "offchaindemo.eth",
-    //             true,
-    //             true,
-    //             "0xDB34Da70Cfd694190742E94B7f17769Bc3d84D27",
-    //             "0x179A862703a4adfb29896552DF9e307980D19285",
-    //         ),
-    //     ] {
-    //         let resolver_address = get_resolver_wildcarded(&reader, None, ens_name)
-    //             .await
-    //             .unwrap();
-    //         assert_eq!(
-    //             resolver_address,
-    //             Address::from_str(expected_resolver).unwrap(),
-    //             "{ens_name}: expected resolver_address to be {expected_resolver}, but got {}",
-    //             resolver_address
-    //         );
-
-    //         let result = resolve_name(&reader, None, ens_name).await.unwrap();
-    //         assert_eq!(
-    //             result.addr.value,
-    //             Address::from_str(expected_addr).unwrap(),
-    //             "{ens_name}: expected resolved_address to be {expected_addr}, but got {}",
-    //             result.addr.value
-    //         );
-    //         assert_eq!(
-    //             result.ccip_read_used, ccip_read_used,
-    //             "{ens_name}: expected ccip_read_used to be {ccip_read_used}, but got {}",
-    //             result.ccip_read_used
-    //         );
-    //         assert_eq!(
-    //             result.wildcard_used, wildcarded,
-    //             "{ens_name}: wildcard_used is {}, expected to be {wildcarded}",
-    //             result.wildcard_used
-    //         );
-    //     }
-    // }
 }

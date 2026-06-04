@@ -13,7 +13,7 @@ use alloy::{
     providers::{ProviderBuilder, RootProvider},
     rpc::types::TransactionRequest,
     sol_types::{SolCall, SolError, SolValue},
-    transports::{BoxTransport, RpcError, TransportErrorKind},
+    transports::{RpcError, TransportErrorKind},
 };
 use async_recursion::async_recursion;
 use reqwest::Url;
@@ -110,10 +110,10 @@ where
     }
 }
 
-impl CCIPReader<RootProvider<BoxTransport>, NamehashIdProvider> {
+impl CCIPReader<RootProvider, NamehashIdProvider> {
     pub fn on_http(url: impl Into<Url>) -> Self {
-        let provider: alloy::providers::RootProvider<BoxTransport, _> =
-            ProviderBuilder::default().on_http(url.into()).boxed();
+        let provider: alloy::providers::RootProvider =
+            ProviderBuilder::default().connect_http(url.into());
         Self::builder().with_provider(provider).build().unwrap()
     }
 
@@ -156,7 +156,7 @@ where
             .with_to(contract_address)
             .with_call(&call);
         let result = self.call_ccip(&tx).await?;
-        let value = C::abi_decode_returns(&result.value, true)?;
+        let value = C::abi_decode_returns(&result.value)?;
         Ok(CCIPResult::new(value, result.requests))
     }
 
@@ -178,7 +178,7 @@ where
         }
         let response = self
             .provider
-            .call(transaction)
+            .call(transaction.clone())
             .block(BlockId::latest())
             .await;
 
@@ -218,7 +218,7 @@ where
             return Err(err.into());
         }
 
-        let offchain_lookup = contracts::IOffChain::OffchainLookup::abi_decode(&bytes, true)?;
+        let offchain_lookup = contracts::IOffChain::OffchainLookup::abi_decode(&bytes)?;
         let sender = &offchain_lookup.sender;
         if !sender.eq(tx_sender) {
             return Err(CCIPReaderError::Sender {
@@ -261,17 +261,14 @@ mod tests {
         hex,
         primitives::address,
         providers::{ProviderBuilder, RootProvider},
-        transports::BoxTransport,
     };
     use pretty_assertions::assert_eq;
 
-    fn default_provider() -> RootProvider<BoxTransport> {
-        ProviderBuilder::default()
-            .on_http(consts::DEFAULT_ETHEREUM_RPC_URL.parse().unwrap())
-            .boxed()
+    fn default_provider() -> RootProvider {
+        ProviderBuilder::default().connect_http(consts::DEFAULT_ETHEREUM_RPC_URL.parse().unwrap())
     }
 
-    fn default_reader() -> CCIPReader<RootProvider<BoxTransport>, NamehashIdProvider> {
+    fn default_reader() -> CCIPReader<RootProvider, NamehashIdProvider> {
         CCIPReader::new(default_provider())
     }
 
@@ -290,8 +287,8 @@ mod tests {
 
         let result = reader.call_and_only_result(&tx).await.unwrap();
 
-        let data: Bytes = Bytes::abi_decode(&result, true).unwrap();
-        let record: String = String::abi_decode(&data, true).unwrap();
+        let data: Bytes = Bytes::abi_decode(&result).unwrap();
+        let record: String = String::abi_decode(&data).unwrap();
 
         assert_eq!(record, email);
     }
